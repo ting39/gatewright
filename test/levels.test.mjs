@@ -10,6 +10,7 @@ const libAt = (i) => buildLibrary(solved, designs, i);
 test('every level has a passing reference solution, in order', () => {
   const table = [];
   for (const level of LEVELS) {
+    if (level.free) continue;
     const lib = libAt(level.index);
     if (level.kind === 'program') {
       const r = checkProgram(level, PROGRAMS[level.id], designs.computer, buildLibrary(solved, designs));
@@ -57,4 +58,14 @@ test('CPU with a swapped mux fails on the right cycle', () => {
   const r = checkLevel(lvl, bad, buildLibrary(solved, designs, lvl.index));
   assert.equal(r.pass, false);
   assert.match(r.fail.msg, /cycle 1, running `ADD #3`/);
+});
+
+test('free-play demo assembles and draws', async () => {
+  const { assemble, RefMachine } = await import('../src/isa.js');
+  const l = LEVELS.find((x) => x.free);
+  const a = assemble(l.starter);
+  assert.equal(a.errors.length, 0);
+  const m = new RefMachine(a.words);
+  for (let i = 0; i < 400; i++) m.step();
+  assert.ok([...m.ram.slice(0xe0)].some((v) => v), 'pen pixel drawn');
 });

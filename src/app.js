@@ -471,14 +471,16 @@ function renderPanel() {
   let h = `<div class="brief"><div class="kicker">${esc(ch.title)} · Level ${l.index + 1} of ${LEVELS.length}</div><h2>${esc(l.title)}</h2>`;
   if (l.io && l.kind !== 'program') h += `<div class="pins"><span>in: ${l.io.in.map((q) => `<b>${esc(q.name)}</b>${q.width > 1 ? '[' + q.width + ']' : ''}`).join(', ')}</span><span>out: ${l.io.out.map((q) => `<b>${esc(q.name)}</b>${q.width > 1 ? '[' + q.width + ']' : ''}`).join(', ')}</span></div>`;
   h += l.brief;
-  if (l.kind === 'program') {
+  if (l.free) {
+    h += '';
+  } else if (l.kind === 'program') {
     h += `<div class="actions"><button class="primary" id="pTest">Run tests</button><button class="ghost" id="pHint" ${hintsShown >= l.hints.length ? 'disabled' : ''}>Hint (${hintsShown}/${l.hints.length})</button></div>`;
   } else {
     h += truthTable(l);
     h += `<div class="actions"><button class="primary" id="pTest">Test ▶</button><button class="ghost" id="pHint" ${hintsShown >= l.hints.length ? 'disabled' : ''}>Hint (${hintsShown}/${l.hints.length})</button><button class="ghost" id="pReset" title="Remove everything except the pins">Clear</button></div>`;
   }
   for (let i = 0; i < hintsShown; i++) h += `<div class="hint">${esc(l.hints[i])}</div>`;
-  if (l.kind === 'program') {
+  if (l.free) { /* no score */ } else if (l.kind === 'program') {
     const best = save.best[l.id];
     h += `<div class="score"><div><small>Best size</small><b>${best ? best.size : '–'}</b></div><div><small>Best cycles</small><b>${best ? best.cycles : '–'}</b></div><div><small>Instr. limit</small><b>256</b></div></div>`;
     if (lastResult && lastResult.kind === 'program' || lastResult && lastResult.error) h += programResultHTML(lastResult);
@@ -490,8 +492,8 @@ function renderPanel() {
   if (save.solved[l.id] && next) h += `<div class="actions"><button class="primary" id="pNext">Next: ${esc(next.title)} →</button></div>`;
   h += '</div>';
   body.innerHTML = h;
-  $('#pTest').onclick = () => (l.kind === 'program' ? programView && programView.test() : runTests());
-  $('#pHint').onclick = () => { save.hints[l.id] = Math.min(l.hints.length, hintsShown + 1); persist(); renderPanel(); sfx.play('hint'); };
+  if ($('#pTest')) $('#pTest').onclick = () => (l.kind === 'program' ? programView && programView.test() : runTests());
+  if ($('#pHint')) $('#pHint').onclick = () => { save.hints[l.id] = Math.min(l.hints.length, hintsShown + 1); persist(); renderPanel(); sfx.play('hint'); };
   if ($('#pReset')) $('#pReset').onclick = () => { editor.commit(); editor.design.parts = editor.design.parts.filter((p) => p.type === 'IN' || p.type === 'OUT'); editor.design.wires = []; editor.changed('clear'); toast('Board cleared. Undo with Ctrl+Z', 'info'); };
   if ($('#pNext')) $('#pNext').onclick = () => openLevel(next.id);
   body.querySelectorAll('.tt tr[data-i]').forEach((tr) => tr.addEventListener('click', () => loadRow(+tr.dataset.i)));
@@ -609,7 +611,7 @@ function showMap() {
     for (const l of LEVELS.filter((x) => x.chapter === ch.id)) {
       const s = save.solved[l.id], best = save.best[l.id];
       const star = l.par && best && best.nand <= l.par.nand;
-      const m = s ? (l.kind === 'program' ? (best ? best.size + ' instr' : '✓') : (star ? '★ ' : '✓ ') + (best ? best.nand : '')) : '';
+      const m = l.free ? (isUnlocked(l) ? '▶' : '') : s ? (l.kind === 'program' ? (best ? best.size + ' instr' : '✓') : (star ? '★ ' : '✓ ') + (best ? best.nand : '')) : '';
       h += `<button class="lvl ${s ? 'done' : ''} ${level && level.id === l.id ? 'cur' : ''}" data-id="${l.id}" ${isUnlocked(l) ? '' : 'disabled'}><span class="n">${l.index + 1}</span><span class="t">${esc(l.title)}</span><span class="m ${star ? 'gold' : ''}">${isUnlocked(l) ? m : '🔒'}</span></button>`;
     }
     h += '</div>';
@@ -625,11 +627,11 @@ function showWin(l, s) {
   let stats = '';
   if (l.kind === 'program') stats = `<p>${s.size} instructions · ${s.cycles} cycles</p>`;
   else stats = `<p>${s.nand} NAND gates · delay ${s.delay ?? '—'}${l.par ? ` · par ${l.par.nand}` : ''}</p>` + (l.par && s.nand <= l.par.nand ? '<p style="color:var(--on)">★ At or under par!</p>' : l.par ? `<p class="note">Par is ${l.par.nand} NAND. You can come back and beat it any time.</p>` : '');
-  const finale = !next;
+  const finale = !next || next.free;
   const h = `<div class="big">${finale ? '🏆' : '⚡'}</div><h2>${finale ? 'You built a computer, and programmed it.' : 'Level complete'}</h2>${stats}` +
     (chip && l.kind !== 'program' ? `<div class="unlock"><canvas id="winIcon"></canvas><div><b>${esc(l.label || chip)}</b> is now in your parts bin</div></div>` : '') +
     (finale ? '<p>Every gate in that machine traces back to the one NAND you started with. The sandbox has all your chips, a ROM and a RAM, for whatever you want to build next.</p>' : '') +
-    `<div class="actions" style="justify-content:center">${next ? `<button class="primary" id="wNext">Next: ${esc(next.title)} →</button>` : '<button class="primary" id="wSand">Open the sandbox</button>'}<button class="ghost" id="wStay">Stay here</button></div>`;
+    `<div class="actions" style="justify-content:center">${next ? `<button class="primary" id="wNext">${finale ? 'Free play: draw on your computer →' : 'Next: ' + esc(next.title) + ' →'}</button>` : '<button class="primary" id="wSand">Open the sandbox</button>'}<button class="ghost" id="wStay">Stay here</button></div>`;
   const sh = modal(h, 'win');
   if (chip && l.kind !== 'program') {
     const tmp = buildLibrary(save.solved, save.passed);

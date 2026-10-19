@@ -8,14 +8,14 @@ You start with one part in the bin: NAND. Every chip you finish joins the bin, s
 levels later you're wiring an 8-bit CPU out of your own ALU, registers and control unit.
 Then you write assembly that runs on the CPU you built, and draw on its 16×16 screen.
 
-## The climb (28 levels)
+## The climb (28 levels + free play)
 | Chapter | Levels |
 |---|---|
 | I · Logic | Inverter, AND, OR, XOR, MUX, DEMUX, 8-bit bus switch |
 | II · Arithmetic | half adder, full adder, byte adder, add/subtract, zero detector, 4-way switch, ALU |
 | III · Memory | SR latch, D latch, edge-triggered flip-flop, bit, register, counter, decoder, RAM |
 | IV · Computer | control unit, CPU, computer (CPU + ROM + RAM) |
-| V · Programs | triangle numbers, multiply, draw an X: G8 assembly on *your* machine |
+| V · Programs | triangle numbers, multiply, draw an X: G8 assembly on *your* machine. Then free play with an etch-a-sketch demo you can edit |
 
 ## Features
 - **A real wiring editor:** drag from pin to pin, multi-bit buses with value badges, split/join/fan parts,

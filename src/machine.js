@@ -34,16 +34,16 @@ function highlight(line) {
 export class ProgramView {
   constructor(root, o) {
     this.root = root; this.o = o; this.level = o.level;
-    this.speed = 3; this.caseIdx = 0; this.buttons = 0; this.timer = 0;
+    this.speed = o.level.free ? 4 : 3; this.caseIdx = 0; this.buttons = 0; this.timer = 0;
     root.innerHTML = `
       <div class="code">
         <div class="codebar">
-          <button class="primary" data-a="test" title="Assemble and run every test case">Run tests</button>
+          ${o.level.free ? '' : '<button class="primary" data-a="test" title="Assemble and run every test case">Run tests</button>'}
           <button class="ghost" data-a="run" title="Run on your computer (Ctrl+Enter)">▶ Run</button>
           <button class="ghost" data-a="step" title="One clock tick (Ctrl+.)">Step</button>
           <button class="ghost" data-a="reset" title="Reload the program and RAM">⟲</button>
-          <label class="note" title="Clock speed">speed <input type="range" min="0" max="${SPEEDS.length - 1}" value="${this.speed}" data-a="speed"></label>
-          <select data-a="case" aria-label="Test case to load"></select>
+          <label class="note" title="Clock speed">speed <input type="range" min="0" max="${SPEEDS.length - 1}" value="${this.speed}" data-a="speed" aria-label="Clock speed"> <span data-a="hz" class="mono">${SPEEDS[this.speed]} Hz</span></label>
+          <select data-a="case" aria-label="Test case to load" ${o.level.free ? 'hidden' : ''}></select>
           <span class="grow"></span>
           <span class="note mono" data-a="size"></span>
         </div>
@@ -68,11 +68,11 @@ export class ProgramView {
     this.ta.value = o.code;
     this.ta.addEventListener('input', () => { this.o.onCode(this.ta.value); this.refresh(true); });
     this.ta.addEventListener('keydown', (e) => this.keys(e));
-    q('[data-a=test]').onclick = () => this.test();
+    if (q('[data-a=test]')) q('[data-a=test]').onclick = () => this.test();
     q('[data-a=run]').onclick = () => this.toggleRun();
     q('[data-a=step]').onclick = () => this.step(1, true);
     q('[data-a=reset]').onclick = () => this.reset();
-    q('[data-a=speed]').oninput = (e) => { this.speed = +e.target.value; if (this.timer) { this.stop(); this.toggleRun(); } };
+    q('[data-a=speed]').oninput = (e) => { this.speed = +e.target.value; q('[data-a=hz]').textContent = SPEEDS[this.speed] + ' Hz'; if (this.timer) { this.stop(); this.toggleRun(); } };
     const sel = q('[data-a=case]');
     this.level.cases.forEach((c, i) => {
       const op = document.createElement('option');

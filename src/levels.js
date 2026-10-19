@@ -341,6 +341,101 @@ out = 2
 `,
     hints: ['Keep a pointer in RAM. LDA ptr then TAP, and now STA [P] writes wherever ptr points.', 'For rows 0–7 the left byte shifts down one bit each row. SHL shifts up, so you can start at row 7 (0x01) and go upwards, or use a lookup of stores.', 'Row r and row 15−r are mirror images. One loop can fill both.'],
   },
+  {
+    id: 'p-free', chapter: 'programs', title: 'Free play', kind: 'program', free: true,
+    brief: `<p>No tests and no score. It's your computer: run whatever you like on it.</p>
+<p>The demo is an etch-a-sketch. Press <b>▶ Run</b>, then use the arrow buttons (or your keyboard's arrows when the editor isn't focused) to draw. <b>A</b> (or Z) clears the screen.</p>
+<p>Ideas: a bouncing pixel, a counter on the output port, Conway's Life on 16×16 if you're brave.</p>`,
+    cases: [{ ram: {} }], limit: 0, hints: [],
+    starter: `; Etch-a-sketch. Arrow buttons move the pen, A clears the screen.
+; This is your sandbox: change anything. Try a faster speed.
+x    = 0x00
+y    = 0x01
+keys = 0x02
+t    = 0x03
+mask = 0x04
+ptr  = 0x05
+
+        LDA #7
+        STA x
+        STA y
+draw:   LDA y           ; ptr = SCREEN + 2*y (+1 if x >= 8)
+        SHL
+        ADD #SCREEN
+        STA ptr
+        LDA x
+        STA t
+        SUB #8
+        JN left
+        STA t           ; column within the right byte
+        LDA ptr
+        ADD #1
+        STA ptr
+left:   LDA #7          ; mask = 1 shifted left (7 - column) times
+        SUB t
+        STA t
+        LDA #1
+        STA mask
+shift:  LDA t
+        JZ plot
+        SUB #1
+        STA t
+        LDA mask
+        SHL
+        STA mask
+        JMP shift
+plot:   LDA ptr
+        TAP
+        LDA mask
+        OR [P]
+        STA [P]
+wait:   LDA KEYS        ; wait for a press...
+        JZ wait
+        STA keys
+release: LDA KEYS       ; ...and its release
+        JNZ release
+        LDA keys
+        AND #1          ; left
+        JZ r
+        LDA x
+        SUB #1
+        AND #15
+        STA x
+r:      LDA keys
+        AND #2          ; right
+        JZ u
+        LDA x
+        ADD #1
+        AND #15
+        STA x
+u:      LDA keys
+        AND #4          ; up
+        JZ d
+        LDA y
+        SUB #1
+        AND #15
+        STA y
+d:      LDA keys
+        AND #8          ; down
+        JZ c
+        LDA y
+        ADD #1
+        AND #15
+        STA y
+c:      LDA keys
+        AND #16         ; A: clear
+        JZ draw
+        LDA #SCREEN
+clr:    TAP
+        STA t
+        LDA #0
+        STA [P]
+        LDA t
+        ADD #1
+        JNZ clr         ; 0xFF + 1 wraps to 0
+        JMP draw
+`,
+  },
 ];
 
 export const aluFn = (op, x, y) => {
