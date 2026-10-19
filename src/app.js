@@ -18,7 +18,7 @@ const clone = (o) => JSON.parse(JSON.stringify(o, (k, v) => (k[0] === '_' ? unde
 const KEY = 'gatewright:v1';
 const fresh = () => ({ v: 1, solved: {}, passed: {}, designs: {}, best: {}, code: {}, hints: {}, cur: 'not', sandbox: null, sound: true });
 let save = fresh();
-try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s && s.v === 1) save = Object.assign(fresh(), s); } catch { /* private mode */ }
+try { const s = new URLSearchParams(location.search).has('fresh') ? null : JSON.parse(localStorage.getItem(KEY) || 'null'); if (s && s.v === 1) save = Object.assign(fresh(), s); } catch { /* private mode */ }
 let saveTimer = 0;
 function persist(now) {
   clearTimeout(saveTimer);

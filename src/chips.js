@@ -147,7 +147,7 @@ export class Library {
   laneable(type) {
     const d = this.get(type);
     if (!d) return false;
-    if (d.laneable !== undefined) return d.laneable;
+    if (PRIMS[type]) return !!d.laneable;
     const ps = d.pins;
     return !!ps && [...ps.in, ...ps.out].every((q) => q.width === 1);
   }

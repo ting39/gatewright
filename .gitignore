@@ -3,3 +3,5 @@ node_modules/
 *.png
 !assets/*.png
 shots/
+PLAN.md
+CARD.json
