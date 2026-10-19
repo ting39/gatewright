@@ -656,6 +656,7 @@ function showHelp() {
     <kbd>Ctrl+A</kbd><span>select everything</span>
     <kbd>arrows</kbd><span>nudge selection</span>
     <kbd>F</kbd><span>fit to screen</span>
+    <kbd>L</kbd><span>tidy: auto-arrange the board (undoable)</span>
     <kbd>T</kbd><span>run the tests</span>
     <kbd>Enter</kbd><span>clock tick (memory levels)</span>
     <kbd>Esc</kbd><span>deselect</span>
@@ -772,6 +773,7 @@ $('#tRedo').onclick = () => editor.redo();
 $('#tZoomIn').onclick = () => editor.zoomAt(editor.W / 2, editor.H / 2, 1.25);
 $('#tZoomOut').onclick = () => editor.zoomAt(editor.W / 2, editor.H / 2, 0.8);
 $('#tFit').onclick = () => editor.fit();
+$('#tTidy').onclick = () => { editor.tidy(); toast('Tidied. Ctrl+Z puts it back', 'info'); };
 $('#tTick').onclick = tick;
 $('#tRun').onclick = toggleRun;
 $('#tReset').onclick = () => { stopClock(); circuit.reset(); for (const k in circuit.inputs) circuit.set(k, inputVals[k] || 0); circuit.evaluate(); editor.propagate(false); updateCycles(); };
@@ -792,6 +794,7 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); editor.deleteSelection(); }
   else if (e.key === 'Escape') { editor.sel.clear(); editor.selWire = null; editor.mode = null; editor.ghost = null; renderInspector(); editor.request(); $('#busEdit').hidden = true; }
   else if (k === 'f' && !mod) editor.fit();
+  else if (k === 'l' && !mod) { editor.tidy(); toast('Tidied. Ctrl+Z puts it back', 'info'); }
   else if (k === 't' && !mod) runTests();
   else if (e.key === 'Enter') { e.preventDefault(); tick(); }
   else if (e.key === '?') showHelp();

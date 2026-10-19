@@ -819,7 +819,7 @@ function boxPath(ctx, shape, w, h, ox, oy) {
     const s = Math.min(16, h / 6), n = 10;
     ctx.moveTo(ox, oy); ctx.lineTo(ox + w, oy + s); ctx.lineTo(ox + w, oy + h - s); ctx.lineTo(ox, oy + h);
     ctx.lineTo(ox, oy + h / 2 + n); ctx.lineTo(ox + n, oy + h / 2); ctx.lineTo(ox, oy + h / 2 - n); ctx.closePath();
-  } else rr(ctx, ox, oy, w, h, 8);
+  } else rr(ctx, ox, oy, w, h, shape === 'icon' ? 4 : 8);
 }
 
 function gatePath(ctx, shape, w, h) {
@@ -840,17 +840,85 @@ function gatePath(ctx, shape, w, h) {
 }
 
 export function drawPartIcon(canvas, part, lib) {
-  // Small preview for the parts bin.
+  // Small glyph for the parts bin: real shapes for gates and wiring, a simplified chip for boxes.
   const g = geom(part, lib);
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const W = canvas.clientWidth || 56, H = canvas.clientHeight || 40;
+  const W = canvas.clientWidth || 52, H = canvas.clientHeight || 34;
   canvas.width = W * dpr; canvas.height = H * dpr;
   const ctx = canvas.getContext('2d');
-  const s = Math.min((W - 10) / (g.w + 8), (H - 8) / (g.h + 4), 0.75);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const def = lib.get(part.type) || {};
+  if (g.shape === 'box' || g.shape === 'mux' || g.shape === 'alu') {
+    const nIn = g.ins.length, nOut = g.outs.length;
+    const bw = 24, bh = Math.min(H - 6, Math.max(14, Math.max(nIn, nOut) * 5 + 6));
+    const x = (W - bw) / 2, y = (H - bh) / 2;
+    ctx.strokeStyle = '#5b6a90'; ctx.lineWidth = 1.2;
+    const stub = (n, x0, x1) => { for (let i = 0; i < n; i++) { const yy = y + (bh * (i + 1)) / (n + 1); ctx.beginPath(); ctx.moveTo(x0, yy); ctx.lineTo(x1, yy); ctx.stroke(); } };
+    stub(Math.min(nIn, 6), x - 6, x); stub(Math.min(nOut, 6), x + bw, x + bw + 6);
+    boxPath(ctx, g.shape === 'box' ? 'icon' : g.shape, bw, bh, x, y);
+    ctx.fillStyle = C.part; ctx.fill(); ctx.strokeStyle = '#7d8bb0'; ctx.stroke();
+    ctx.fillStyle = def.kind === 'device' ? '#b48cff' : def.clocked ? '#57e3c1' : '#7f9cff';
+    if (g.shape === 'box') ctx.fillRect(x + 4, y + 3, bw - 8, 2);
+    return;
+  }
+  const s = Math.min((W - 8) / (g.w + 10), (H - 4) / (g.h + 6), 0.8);
   ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * (W - g.w * s) / 2, dpr * (H - g.h * s) / 2);
   const fake = { lib: () => lib, onEdit() {}, onSelect() {}, sound() {}, locked: () => false, toast() {} };
   const e = Object.create(Editor.prototype);
-  e.host = fake; e.design = { parts: [part], wires: [] }; e.sel = new Set(); e.view = { x: 0, y: 0, z: 1 }; e.badges = new Map();
+  e.host = fake; e.design = { parts: [part], wires: [] }; e.sel = new Set(); e.view = { x: 0, y: 0, z: 0.5 }; e.badges = new Map();
   e.disp = null; e.circuit = null;
   e._part(ctx, { ...part, x: 0, y: 0 }, false);
 }
+
+// Layered auto-layout: columns by logic depth, rows ordered by the average height of each part's drivers.
+export function autoLayout(design, lib) {
+  const parts = design.parts;
+  const byId = new Map(parts.map((p) => [p.id, p]));
+  const drivers = new Map(parts.map((p) => [p.id, []]));
+  for (const w of design.wires) if (drivers.has(w.to.part) && byId.has(w.from.part)) drivers.get(w.to.part).push(w.from.part);
+  const layer = new Map();
+  const L = (id, stack) => {
+    if (layer.has(id)) return layer.get(id);
+    const p = byId.get(id);
+    if (p.type === 'IN' || stack.has(id)) return 0;
+    stack.add(id);
+    let m = 0;
+    for (const d of drivers.get(id)) m = Math.max(m, L(d, stack) + 1);
+    stack.delete(id);
+    layer.set(id, m);
+    return m;
+  };
+  for (const p of parts) if (p.type === 'IN') layer.set(p.id, 0);
+  for (const p of parts) L(p.id, new Set());
+  const inner = parts.filter((p) => p.type !== 'OUT').map((p) => layer.get(p.id));
+  const maxL = Math.max(0, ...inner);
+  for (const p of parts) if (p.type === 'OUT') layer.set(p.id, maxL + 1);
+  const cols = new Map();
+  for (const p of parts) { const l = layer.get(p.id) || 0; if (!cols.has(l)) cols.set(l, []); cols.get(l).push(p); }
+  const keys = [...cols.keys()].sort((a, b) => a - b);
+  const cy = new Map();
+  let x = 0;
+  for (const l of keys) {
+    const col = cols.get(l);
+    const key = (p) => {
+      const ds = drivers.get(p.id).filter((d) => cy.has(d));
+      return ds.length ? ds.reduce((s, d) => s + cy.get(d), 0) / ds.length : p.y;
+    };
+    col.sort((a, b) => key(a) - key(b));
+    let y = 0, wmax = 0;
+    const gs = col.map((p) => geom(p, lib));
+    const total = gs.reduce((s, g) => s + g.h + 2 * G, -2 * G);
+    y = -Math.round(total / 2 / G) * G;
+    col.forEach((p, i) => { p.x = x; p.y = y; cy.set(p.id, y + gs[i].h / 2); y += gs[i].h + 2 * G; wmax = Math.max(wmax, gs[i].w); });
+    x += Math.ceil((wmax + 6 * G) / G) * G;
+  }
+  for (const w of design.wires) delete w.mx;
+  return design;
+}
+
+Editor.prototype.tidy = function () {
+  this.commit();
+  autoLayout(this.design, this.lib);
+  this.changed('tidy');
+  this.fit();
+};
