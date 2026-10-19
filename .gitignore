@@ -1,0 +1,4 @@
+.heartbeat
+node_modules/
+*.png
+!assets/*.png
