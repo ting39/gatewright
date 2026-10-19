@@ -313,10 +313,23 @@ export function checkComputer(design, lib) {
   return { pass: !fail, total: rows.length, passed: rows.filter((r) => r.ok).length, rows, fail, kind: 'computer', sequence: true };
 }
 
+// Same interface as Machine, backed by the reference CPU (used when no computer design exists).
+export class RefAdapter {
+  constructor() { this.ok = true; this.ref = new RefMachine(); }
+  load(words, ram = {}) { this.ref = new RefMachine(Uint16Array.from(words)); for (const k in ram) this.ref.ram[+k] = ram[k]; }
+  get pc() { return this.ref.pc; }
+  get mem() { return this.ref.ram; }
+  get outLog() { return this.ref.outLog; }
+  set buttons(v) { this.ref.buttons = v; }
+  halted() { return this.ref.halted(); }
+  step() { this.ref.step(); return true; }
+  run(limit) { let n = 0; while (n < limit && !this.halted()) { this.step(); n++; } return n; }
+}
+
 export function checkProgram(level, src, design, lib) {
   const asm = assemble(src);
   if (asm.errors.length) return { pass: false, error: `Line ${asm.errors[0].line + 1}: ${asm.errors[0].msg}`, asm, rows: [] };
-  const m = new Machine(design, lib);
+  const m = design ? new Machine(design, lib) : new RefAdapter();
   if (!m.ok) return { pass: false, error: 'Your computer design is missing its ROM or RAM.', rows: [] };
   const rows = [];
   let fail = null, maxCycles = 0;
