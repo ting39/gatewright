@@ -34,6 +34,11 @@ b { color: #fff; }
 .tb { background: var(--bg3); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; font-weight: 600; font-size: 13px; }
 .tb:hover { border-color: var(--line2); background: #1e2944; }
 .tb.icon { width: 34px; padding: 6px 0; }
+a.tb.home { color: var(--muted); text-decoration: none; font-weight: 500; }
+a.tb.home:hover { color: inherit; }
+@media (max-width: 760px) { a.tb.home { display: none; } }
+#phone .phone-home { margin-top: 14px; font-size: 14px; }
+#phone .phone-home a { color: inherit; }
 .tb.off { color: var(--dim); text-decoration: line-through; }
 
 #work { display: grid; grid-template-columns: 172px 1fr 352px; min-height: 0; }

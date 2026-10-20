@@ -2,6 +2,7 @@
 node_modules/
 *.png
 !assets/*.png
+!og.png
 shots/
 PLAN.md
 CARD.json

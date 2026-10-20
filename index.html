@@ -6,6 +6,12 @@
 <title>Gatewright: build a computer from NAND</title>
 <meta name="description" content="A puzzle game: start with a single NAND gate and wire your way up to a working 8-bit CPU, then program it.">
 <meta name="theme-color" content="#0d1220">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Gatewright: build a computer from NAND">
+<meta property="og:description" content="A puzzle game: start with one NAND gate and wire your way up to a working 8-bit CPU, then program it.">
+<meta property="og:url" content="https://ting39.github.io/gatewright/">
+<meta property="og:image" content="https://ting39.github.io/gatewright/og.png">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1220'/%3E%3Cpath d='M7 8h9a8 8 0 0 1 0 16H7z' fill='none' stroke='%23ffb84d' stroke-width='2.5'/%3E%3Ccircle cx='26' cy='16' r='2.6' fill='none' stroke='%23ffb84d' stroke-width='2'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -18,6 +24,7 @@
     </button>
     <div class="crumbs" id="crumbs"></div>
     <div class="spacer"></div>
+    <a class="tb home" href="https://ting39.github.io/" title="Back to ting39's homepage">← ting39</a>
     <button class="tb" id="btnSandbox" title="Sandbox: build anything">Sandbox</button>
     <button class="tb icon" id="btnHelp" title="Controls (?)" aria-label="Help">?</button>
     <button class="tb icon" id="btnSound" title="Sound on/off" aria-label="Toggle sound">♪</button>
@@ -61,6 +68,7 @@
     <h2>Gatewright needs room</h2>
     <p>This is a wiring game. It works best on a tablet or computer, where there's space to lay out chips.</p>
     <button id="phoneGo" class="primary">Try anyway</button>
+    <p class="phone-home"><a href="https://ting39.github.io/">← back to ting39's homepage</a></p>
   </div>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
