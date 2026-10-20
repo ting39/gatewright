@@ -31,6 +31,7 @@ Then you write assembly that runs on the CPU you built, and draw on its 16×16 s
   Each level has a par and remembers your personal best.
 - **Programs run on your own wiring.** The program levels run on your computer design, not a stand-in.
   The machine view has a syntax-highlighted editor, step/run at adjustable speed, the screen, RAM, the output port and buttons.
+- **Custom chips:** in the sandbox, save any board as your own chip (its pins become the chip's pins), reuse it, nest it, edit it.
 - Hints for every level, a sandbox, export/import of designs and progress, sound (WebAudio, toggleable),
   `prefers-reduced-motion` support, and a tablet layout.
 

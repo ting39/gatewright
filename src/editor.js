@@ -327,7 +327,7 @@ export class Editor {
     if (!this.W) return;
     const b = this.bounds();
     const pad = 60;
-    const z = Math.max(0.35, Math.min(1.6, Math.min((this.W - pad * 2) / (b.x1 - b.x0), (this.H - pad * 2) / (b.y1 - b.y0))));
+    const z = Math.max(0.35, Math.min(1.25, Math.min((this.W - pad * 2) / (b.x1 - b.x0), (this.H - pad * 2) / (b.y1 - b.y0))));
     this.view.z = z;
     this.view.x = (b.x0 + b.x1) / 2 - this.W / 2 / z;
     this.view.y = (b.y0 + b.y1) / 2 - this.H / 2 / z;
@@ -345,7 +345,7 @@ export class Editor {
 
   // ---- hit testing ----
   hitPin(wx, wy) {
-    const r = Math.max(9, 10 / this.view.z);
+    const r = Math.max(9, (this.touch ? 22 : 10) / this.view.z);
     let best = null, bd = r;
     for (let k = this.design.parts.length - 1; k >= 0; k--) {
       const p = this.design.parts[k];
@@ -372,7 +372,7 @@ export class Editor {
     return routeWire(pa.x, pa.y, pb.x, pb.y, w.mx);
   }
   hitWire(wx, wy) {
-    const tol = Math.max(5, 6 / this.view.z);
+    const tol = Math.max(5, (this.touch ? 14 : 6) / this.view.z);
     for (let k = this.design.wires.length - 1; k >= 0; k--) {
       const w = this.design.wires[k];
       const path = this.wirePath(w);
@@ -414,6 +414,7 @@ export class Editor {
     return { sx, sy, ...this.toWorld(sx, sy) };
   }
   _down(e) {
+    this.touch = e.pointerType === 'touch' || e.pointerType === 'pen';
     this.cv.focus({ preventScroll: true });
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     try { this.cv.setPointerCapture(e.pointerId); } catch { /* ignore */ }
@@ -848,7 +849,7 @@ export function drawPartIcon(canvas, part, lib) {
   const ctx = canvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const def = lib.get(part.type) || {};
-  if (g.shape === 'box' || g.shape === 'mux' || g.shape === 'alu') {
+  if ((g.shape === 'box' || g.shape === 'mux' || g.shape === 'alu') && def.kind !== 'wire' && def.kind !== 'io') {
     const nIn = g.ins.length, nOut = g.outs.length;
     const bw = 24, bh = Math.min(H - 6, Math.max(14, Math.max(nIn, nOut) * 5 + 6));
     const x = (W - bw) / 2, y = (H - bh) / 2;

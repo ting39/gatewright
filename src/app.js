@@ -16,7 +16,7 @@ const clone = (o) => JSON.parse(JSON.stringify(o, (k, v) => (k[0] === '_' ? unde
 // Save data (localStorage, guarded)
 // ---------------------------------------------------------------------------
 const KEY = 'gatewright:v1';
-const fresh = () => ({ v: 1, solved: {}, passed: {}, designs: {}, best: {}, code: {}, hints: {}, cur: 'not', sandbox: null, sound: true });
+const fresh = () => ({ v: 1, solved: {}, passed: {}, designs: {}, best: {}, code: {}, hints: {}, cur: 'not', sandbox: null, sound: true, custom: {} });
 let save = fresh();
 try { const s = new URLSearchParams(location.search).has('fresh') ? null : JSON.parse(localStorage.getItem(KEY) || 'null'); if (s && s.v === 1) save = Object.assign(fresh(), s); } catch { /* private mode */ }
 let saveTimer = 0;
@@ -102,7 +102,7 @@ function openSandbox() {
   history.replaceState(null, '', '#sandbox');
   setProgramMode(false);
   lastResult = null; inputVals = {};
-  lib = buildLibrary(save.solved, save.passed);
+  lib = sandboxLib();
   const d = save.sandbox ? clone(save.sandbox) : {
     parts: [
       { id: 'sa', type: 'IN', x: 0, y: 0, cfg: { name: 'a', width: 1 } },
@@ -114,6 +114,70 @@ function openSandbox() {
   editor.setDesign(d);
   recompile();
   renderCrumbs(); renderBin(); renderPanel(); renderInspector();
+}
+
+// Sandbox library = every solved chip + the player's own saved chips (inlined, not sealed).
+function sandboxLib() {
+  const l = buildLibrary(save.solved, save.passed);
+  for (const c of Object.values(save.custom || {})) {
+    l.add({ name: c.name, label: c.name, shape: 'box', pins: c.pins, model: null, sealed: false, design: c.design, custom: true, laneable: false, blurb: c.note || 'One of your own chips.' });
+  }
+  return l;
+}
+
+function pinsOfDesign(d) {
+  const by = (t) => d.parts.filter((p) => p.type === t).sort((a, b) => a.y - b.y || a.x - b.x).map((p) => ({ name: p.cfg.name, width: p.cfg.width || 1 }));
+  return { in: by('IN'), out: by('OUT') };
+}
+
+function usesChip(design, name, seen = new Set()) {
+  for (const p of design.parts) {
+    if (p.type === name) return true;
+    const c = save.custom[p.type];
+    if (c && !seen.has(p.type)) { seen.add(p.type); if (usesChip(c.design, name, seen)) return true; }
+  }
+  return false;
+}
+
+function saveAsChip() {
+  const d = clone(editor.design);
+  const pins = pinsOfDesign(d);
+  if (!pins.in.length || !pins.out.length) { toast('A chip needs at least one input and one output pin', 'err'); return; }
+  const raw = prompt('Name your chip (letters, digits, up to 10):', '');
+  if (raw === null) return;
+  const name = raw.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 10);
+  if (!name || /^\d/.test(name)) { toast('Use letters and digits, starting with a letter', 'err'); return; }
+  if (lib.has(name) && !save.custom[name]) { toast(name + ' is already a built-in part name', 'err'); return; }
+  if (usesChip(d, name)) { toast("A chip can't contain itself", 'err'); return; }
+  if (save.custom[name] && !confirm('Replace your chip ' + name + '?')) return;
+  save.custom[name] = { name, pins, design: d, at: Date.now() };
+  persist(true);
+  lib = sandboxLib(); recompile(); renderBin(); renderPanel();
+  toast(name + ' is in your bin under My chips', 'ok');
+  sfx.play('win');
+}
+
+function deleteChip(name) {
+  const users = Object.values(save.custom).filter((c) => c.name !== name && usesChip(c.design, name)).map((c) => c.name);
+  if (users.length) { toast(`${name} is used inside ${users.join(', ')}. Delete those first`, 'err'); return; }
+  if (!confirm('Delete your chip ' + name + '? Copies on the board will be removed.')) return;
+  delete save.custom[name];
+  persist(true);
+  lib = sandboxLib();
+  editor.design.parts = editor.design.parts.filter((p) => lib.has(p.type));
+  editor.design.wires = editor.design.wires.filter((w) => editor.partById(w.from.part) && editor.partById(w.to.part));
+  editor.changed('delete');
+  renderBin(); renderPanel();
+}
+
+function loadChipForEditing(name) {
+  const c = save.custom[name];
+  if (!c) return;
+  editor.commit();
+  const d = clone(c.design);
+  editor.design.parts = d.parts; editor.design.wires = d.wires;
+  editor.changed('load'); editor.fit();
+  toast(`Editing ${name}: change it, then Save as chip with the same name`, 'info');
 }
 
 function setProgramMode(on) {
@@ -317,7 +381,7 @@ function binItems() {
   if (!level) { items.io.push({ type: 'IN', cfg: { name: 'in', width: 1 } }, { type: 'OUT', cfg: { name: 'out', width: 1 } }); }
   for (const t of ['SPLIT', 'JOIN', 'FAN', 'CONST']) if (tools.includes(t)) items.wire.push({ type: t, cfg: structuredClone(PRIMS[t].defaults) });
   items.chips.push({ type: 'NAND' });
-  for (const c of lib.chips.values()) items.chips.push({ type: c.name });
+  for (const c of lib.chips.values()) (c.custom ? (items.mine ||= []) : items.chips).push({ type: c.name });
   for (const t of ['ROM', 'RAM256']) if (tools.includes(t)) items.dev.push({ type: t });
   return items;
 }
@@ -347,6 +411,7 @@ function renderBin() {
   };
   sec('Pins', items.io);
   sec('Chips', items.chips);
+  sec('My chips', items.mine || []);
   sec('Wiring', items.wire);
   sec('Devices', items.dev);
 }
@@ -458,8 +523,15 @@ function renderPanel() {
     body.innerHTML = `<div class="brief"><div class="kicker">Sandbox</div><h2>Build anything</h2>
       <p>Everything you've unlocked is in the bin. Add pins from <b>Pins</b> and rename them in the inspector.</p>
       <p>Nothing here is tested or scored. It's a place to try ideas: a 4-bit counter, a traffic light, a whole second CPU.</p>
-      <div class="actions"><button class="ghost" id="pClear">Clear board</button><button class="ghost" id="pExport">Export design</button></div>
-      <div class="score" id="scoreNow"></div></div>`;
+      <div class="actions"><button class="primary" id="pChip" title="Turn this board into a reusable part">Save as chip</button><button class="ghost" id="pClear">Clear board</button><button class="ghost" id="pExport">Export design</button></div>
+      <p class="note">Save as chip: the board's input pins become the chip's inputs and its output pins become outputs, in top-to-bottom order.</p>
+      <div class="score" id="scoreNow"></div>
+      <h3 style="margin:18px 0 6px;font-size:14px">My chips</h3>
+      ${Object.values(save.custom).length ? Object.values(save.custom).map((c) => `<div class="mychip"><b>${esc(c.name)}</b><span class="note">${c.pins.in.map((q) => q.name).join(', ')} → ${c.pins.out.map((q) => q.name).join(', ')} · ${lib.nandCount(c.name)} NAND</span><span class="grow"></span><button class="chip-btn" data-edit="${esc(c.name)}">Edit</button><button class="chip-btn danger" data-del="${esc(c.name)}">Delete</button></div>`).join('') : '<p class="note">None yet. Build something with input and output pins, then press Save as chip.</p>'}
+      </div>`;
+    $('#pChip').onclick = saveAsChip;
+    body.querySelectorAll('[data-del]').forEach((b) => (b.onclick = () => deleteChip(b.dataset.del)));
+    body.querySelectorAll('[data-edit]').forEach((b) => (b.onclick = () => loadChipForEditing(b.dataset.edit)));
     $('#pClear').onclick = () => { editor.commit(); editor.design.parts = editor.design.parts.filter((p) => p.type === 'IN' || p.type === 'OUT'); editor.design.wires = []; editor.changed('clear'); };
     $('#pExport').onclick = exportDesign;
     renderStats();

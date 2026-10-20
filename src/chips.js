@@ -148,6 +148,7 @@ export class Library {
     const d = this.get(type);
     if (!d) return false;
     if (PRIMS[type]) return !!d.laneable;
+    if (d.custom) return false;
     const ps = d.pins;
     return !!ps && [...ps.in, ...ps.out].every((q) => q.width === 1);
   }
