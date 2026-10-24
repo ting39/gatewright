@@ -185,13 +185,13 @@ export class ProgramView {
     for (let i = 0; i < n; i++) {
       if (this.m.halted()) {
         this.stop();
-        if (manual || i > 0) { this.o.toast(`Halted after ${this.cycles} cycles`, 'ok'); this.o.sound('halt'); }
+        if (manual || i > 0) { this.o.toast(window.I18N ? I18N.t('tpl.halted', { n: this.cycles }) : `Halted after ${this.cycles} cycles`, 'ok'); this.o.sound('halt'); }
         break;
       }
       const d = decode(this.ref.rom[this.ref.pc]);
       if (d.s) this.writes.add(d.p ? this.ref.p : d.k);
       this.m.step(); this.ref.step(); this.cycles++;
-      if (!this.diverged && this.m.pc !== this.ref.pc) { this.diverged = true; this.o.toast(`Your computer disagrees with the reference at cycle ${this.cycles}`, 'err'); }
+      if (!this.diverged && this.m.pc !== this.ref.pc) { this.diverged = true; this.o.toast(window.I18N ? I18N.t('tpl.disagree', { n: this.cycles }) : `Your computer disagrees with the reference at cycle ${this.cycles}`, 'err'); }
       if (this.cycles >= 200000) { this.stop(); this.o.toast('Stopped after 200,000 cycles', 'info'); break; }
     }
     if (manual) this.o.sound('tick');
@@ -203,7 +203,7 @@ export class ProgramView {
     if (this.timer) { this.stop(); return; }
     if (this.m && this.m.halted()) this.reset();
     const btn = this.root.querySelector('[data-a=run]');
-    btn.textContent = '❚❚ Pause';
+    btn.textContent = window.I18N ? I18N.t('❚❚ Pause') : '❚❚ Pause';
     let last = performance.now(), acc = 0;
     const loop = (t) => {
       acc += ((t - last) / 1000) * SPEEDS[this.speed]; last = t;
@@ -218,7 +218,7 @@ export class ProgramView {
     if (this.timer) cancelAnimationFrame(this.timer);
     this.timer = 0;
     const btn = this.root.querySelector('[data-a=run]');
-    if (btn) btn.textContent = '▶ Run';
+    if (btn) btn.textContent = window.I18N ? I18N.t('▶ Run') : '▶ Run';
   }
 
   draw() {

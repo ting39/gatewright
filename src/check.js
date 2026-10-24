@@ -86,7 +86,7 @@ function checkComb(level, design, lib) {
     if (!stable) row.note = 'never settles';
     rows.push(row);
     if (row.ok) passed++;
-    else if (!fail) fail = { index: rows.length - 1, ...row, msg: (stable ? 'Wrong output' : 'Your circuit never settles (it oscillates)') + ' for ' + fmtIO(v, level.io.in) };
+    else if (!fail) fail = { index: rows.length - 1, ...row, msg: (globalThis.I18N ? globalThis.I18N.t(stable ? 'Wrong output' : 'Your circuit never settles (it oscillates)') : (stable ? 'Wrong output' : 'Your circuit never settles (it oscillates)')) + (globalThis.I18N && globalThis.I18N.lang !== 'en' ? '：' : ' for ') + fmtIO(v, level.io.in) };
   }
   return { pass: !fail, total: rows.length, passed, rows, fail, kind: 'comb' };
 }
@@ -108,7 +108,7 @@ function checkSteps(level, design, lib, clocked) {
     if (!stable) row.note = 'never settles';
     rows.push(row);
     if (row.ok) passed++;
-    else if (!fail) fail = { index: i, ...row, msg: (stable ? 'Wrong output' : 'Your circuit never settles') + ` at step ${i + 1} (${fmtIO(v, level.io.in)})` };
+    else if (!fail) fail = { index: i, ...row, msg: (globalThis.I18N ? globalThis.I18N.t(stable ? 'Wrong output' : 'Your circuit never settles') : (stable ? 'Wrong output' : 'Your circuit never settles')) + (globalThis.I18N && globalThis.I18N.lang !== 'en' ? ` @ ${i + 1}（${fmtIO(v, level.io.in)}）` : ` at step ${i + 1} (${fmtIO(v, level.io.in)})`) };
     if (fail) break;
     if (clocked) { level.spec.next(v, st); c.tick(); }
   }
@@ -291,7 +291,7 @@ export class Machine {
 
 export function checkComputer(design, lib) {
   const m = new Machine(design, lib);
-  if (!m.ok) return { pass: false, error: 'Your computer needs one ROM and one RAM 256.', rows: [], total: 0, passed: 0 };
+  if (!m.ok) return { pass: false, error: globalThis.I18N ? globalThis.I18N.t('Your computer needs one ROM and one RAM 256.') : 'Your computer needs one ROM and one RAM 256.', rows: [], total: 0, passed: 0 };
   const asm = assemble(COMPUTER_TEST);
   const ref = new RefMachine(asm.words);
   m.load(asm.words);
@@ -330,7 +330,7 @@ export function checkProgram(level, src, design, lib) {
   const asm = assemble(src);
   if (asm.errors.length) return { pass: false, error: `Line ${asm.errors[0].line + 1}: ${asm.errors[0].msg}`, asm, rows: [] };
   const m = design ? new Machine(design, lib) : new RefAdapter();
-  if (!m.ok) return { pass: false, error: 'Your computer design is missing its ROM or RAM.', rows: [] };
+  if (!m.ok) return { pass: false, error: globalThis.I18N ? globalThis.I18N.t('Your computer design is missing its ROM or RAM.') : 'Your computer design is missing its ROM or RAM.', rows: [] };
   const rows = [];
   let fail = null, maxCycles = 0;
   level.cases.forEach((cs, i) => {

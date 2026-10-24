@@ -7,6 +7,14 @@ import { checkLevel, scoreOf, combVectors } from './check.js';
 import { Editor, G, drawPartIcon } from './editor.js';
 import { ProgramView } from './machine.js';
 import { sfx } from './sound.js';
+import { LEVEL_TR } from './levels-i18n.js';
+
+// ---- translations: UI via window.I18N (English text is the key), level text via LEVEL_TR ----
+const L = (x) => (window.I18N ? I18N.t(x) : x);
+const TT = (k, v) => (window.I18N ? I18N.t(k, v) : k);
+const LANG = () => (window.I18N ? I18N.lang : 'en');
+const lvT = (l) => ({ ...l, ...((LEVEL_TR[LANG()] && LEVEL_TR[LANG()].levels[l.id]) || {}) });
+const chT = (c) => ({ ...c, ...((LEVEL_TR[LANG()] && LEVEL_TR[LANG()].chapters[c.id]) || {}) });
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -120,7 +128,7 @@ function openSandbox() {
 function sandboxLib() {
   const l = buildLibrary(save.solved, save.passed);
   for (const c of Object.values(save.custom || {})) {
-    l.add({ name: c.name, label: c.name, shape: 'box', pins: c.pins, model: null, sealed: false, design: c.design, custom: true, laneable: false, blurb: c.note || 'One of your own chips.' });
+    l.add({ name: c.name, label: c.name, shape: 'box', pins: c.pins, model: null, sealed: false, design: c.design, custom: true, laneable: false, blurb: c.note || L('One of your own chips.') });
   }
   return l;
 }
@@ -143,17 +151,17 @@ function saveAsChip() {
   const d = clone(editor.design);
   const pins = pinsOfDesign(d);
   if (!pins.in.length || !pins.out.length) { toast('A chip needs at least one input and one output pin', 'err'); return; }
-  const raw = prompt('Name your chip (letters, digits, up to 10):', '');
+  const raw = prompt(L('Name your chip (letters, digits, up to 10):'), '');
   if (raw === null) return;
   const name = raw.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 10);
   if (!name || /^\d/.test(name)) { toast('Use letters and digits, starting with a letter', 'err'); return; }
-  if (lib.has(name) && !save.custom[name]) { toast(name + ' is already a built-in part name', 'err'); return; }
+  if (lib.has(name) && !save.custom[name]) { toast(TT('tpl.builtin', { n: name }), 'err'); return; }
   if (usesChip(d, name)) { toast("A chip can't contain itself", 'err'); return; }
   if (save.custom[name] && !confirm('Replace your chip ' + name + '?')) return;
   save.custom[name] = { name, pins, design: d, at: Date.now() };
   persist(true);
   lib = sandboxLib(); recompile(); renderBin(); renderPanel();
-  toast(name + ' is in your bin under My chips', 'ok');
+  toast(TT('tpl.saved', { n: name }), 'ok');
   sfx.play('win');
 }
 
@@ -365,9 +373,9 @@ function loadRow(i, sound = true) {
 // ---------------------------------------------------------------------------
 function renderCrumbs() {
   const c = $('#crumbs');
-  if (!level) { c.innerHTML = '<span class="ch">Sandbox</span><span class="lv">Build anything</span>'; return; }
+  if (!level) { c.innerHTML = `<span class="ch">${L('Sandbox')}</span><span class="lv">${L('Build anything')}</span>`; return; }
   const ch = CHAPTERS.find((x) => x.id === level.chapter);
-  c.innerHTML = `<span class="ch">${esc(ch.title)}</span><span class="lv">${level.index + 1}. ${esc(level.title)}</span>` + (save.solved[level.id] ? '<span class="solved">✓ solved</span>' : '');
+  c.innerHTML = `<span class="ch">${esc(chT(ch).title)}</span><span class="lv">${level.index + 1}. ${esc(lvT(level).title)}</span>` + (save.solved[level.id] ? `<span class="solved">${L('✓ solved')}</span>` : '');
 }
 
 const PART_INFO = {
@@ -402,7 +410,7 @@ function renderBin() {
       const name = PART_INFO[it.type]?.name || def.label || it.type;
       const n = lib.nandCount(it.type);
       b.innerHTML = `<canvas></canvas><span><span class="nm">${esc(name)}</span><span class="ct">${def.kind === 'wire' ? 'wiring' : def.kind === 'device' ? 'device' : it.type === 'IN' || it.type === 'OUT' ? 'pin' : n + ' NAND'}</span></span>`;
-      b.title = (PART_INFO[it.type]?.blurb || def.blurb || name) + '\nDrag onto the board, or click to drop it in the middle.';
+      b.title = (PART_INFO[it.type]?.blurb || def.blurb || name) + '\n' + L('Drag onto the board, or click to drop it in the middle.');
       b.setAttribute('aria-label', 'Add ' + name);
       bin.appendChild(b);
       requestAnimationFrame(() => drawPartIcon(b.querySelector('canvas'), { id: 'icon', type: it.type, x: 0, y: 0, cfg: it.cfg }, lib));
@@ -411,7 +419,7 @@ function renderBin() {
   };
   sec('Pins', items.io);
   sec('Chips', items.chips);
-  sec('My chips', items.mine || []);
+  sec(L('My chips'), items.mine || []);
   sec('Wiring', items.wire);
   sec('Devices', items.dev);
 }
@@ -540,18 +548,19 @@ function renderPanel() {
   const l = level;
   const ch = CHAPTERS.find((x) => x.id === l.chapter);
   const hintsShown = save.hints[l.id] || 0;
-  let h = `<div class="brief"><div class="kicker">${esc(ch.title)} · Level ${l.index + 1} of ${LEVELS.length}</div><h2>${esc(l.title)}</h2>`;
+  const lt = lvT(l);
+  let h = `<div class="brief"><div class="kicker">${esc(TT('tpl.levelOf', { ch: chT(ch).title, n: l.index + 1, total: LEVELS.length }))}</div><h2>${esc(lt.title)}</h2>`;
   if (l.io && l.kind !== 'program') h += `<div class="pins"><span>in: ${l.io.in.map((q) => `<b>${esc(q.name)}</b>${q.width > 1 ? '[' + q.width + ']' : ''}`).join(', ')}</span><span>out: ${l.io.out.map((q) => `<b>${esc(q.name)}</b>${q.width > 1 ? '[' + q.width + ']' : ''}`).join(', ')}</span></div>`;
-  h += l.brief;
+  h += lt.brief;
   if (l.free) {
     h += '';
   } else if (l.kind === 'program') {
-    h += `<div class="actions"><button class="primary" id="pTest">Run tests</button><button class="ghost" id="pHint" ${hintsShown >= l.hints.length ? 'disabled' : ''}>Hint (${hintsShown}/${l.hints.length})</button></div>`;
+    h += `<div class="actions"><button class="primary" id="pTest">${L('Run tests')}</button><button class="ghost" id="pHint" ${hintsShown >= l.hints.length ? 'disabled' : ''}>${TT('tpl.hint', { a: hintsShown, b: l.hints.length })}</button></div>`;
   } else {
     h += truthTable(l);
-    h += `<div class="actions"><button class="primary" id="pTest">Test ▶</button><button class="ghost" id="pHint" ${hintsShown >= l.hints.length ? 'disabled' : ''}>Hint (${hintsShown}/${l.hints.length})</button><button class="ghost" id="pReset" title="Remove everything except the pins">Clear</button></div>`;
+    h += `<div class="actions"><button class="primary" id="pTest">${L('Test ▶')}</button><button class="ghost" id="pHint" ${hintsShown >= l.hints.length ? 'disabled' : ''}>${TT('tpl.hint', { a: hintsShown, b: l.hints.length })}</button><button class="ghost" id="pReset" title="${L('Remove everything except the pins')}">${L('Clear')}</button></div>`;
   }
-  for (let i = 0; i < hintsShown; i++) h += `<div class="hint">${esc(l.hints[i])}</div>`;
+  for (let i = 0; i < hintsShown; i++) h += `<div class="hint">${esc((lt.hints || l.hints)[i] || l.hints[i])}</div>`;
   if (l.free) { /* no score */ } else if (l.kind === 'program') {
     const best = save.best[l.id];
     h += `<div class="score"><div><small>Best size</small><b>${best ? best.size : '–'}</b></div><div><small>Best cycles</small><b>${best ? best.cycles : '–'}</b></div><div><small>Instr. limit</small><b>256</b></div></div>`;
@@ -561,7 +570,7 @@ function renderPanel() {
     h += resultHTML(lastResult);
   }
   const next = LEVELS[l.index + 1];
-  if (save.solved[l.id] && next) h += `<div class="actions"><button class="primary" id="pNext">Next: ${esc(next.title)} →</button></div>`;
+  if (save.solved[l.id] && next) h += `<div class="actions"><button class="primary" id="pNext">${esc(TT('tpl.next', { t: lvT(next).title }))}</button></div>`;
   h += '</div>';
   body.innerHTML = h;
   if ($('#pTest')) $('#pTest').onclick = () => (l.kind === 'program' ? programView && programView.test() : runTests());
@@ -679,12 +688,12 @@ function closeModal() { $('#modal').hidden = true; $('#board').focus({ preventSc
 function showMap() {
   let h = '<h2>Level map</h2><p class="note">From one NAND to a computer you can program. Solve a level to unlock the next. ★ = at or under par NAND count.</p><div class="map">';
   for (const ch of CHAPTERS) {
-    h += `<div class="chap"><h3>${esc(ch.title)}</h3><p>${esc(ch.blurb)}</p>`;
+    h += `<div class="chap"><h3>${esc(chT(ch).title)}</h3><p>${esc(chT(ch).blurb)}</p>`;
     for (const l of LEVELS.filter((x) => x.chapter === ch.id)) {
       const s = save.solved[l.id], best = save.best[l.id];
       const star = l.par && best && best.nand <= l.par.nand;
       const m = l.free ? (isUnlocked(l) ? '▶' : '') : s ? (l.kind === 'program' ? (best ? best.size + ' instr' : '✓') : (star ? '★ ' : '✓ ') + (best ? best.nand : '')) : '';
-      h += `<button class="lvl ${s ? 'done' : ''} ${level && level.id === l.id ? 'cur' : ''}" data-id="${l.id}" ${isUnlocked(l) ? '' : 'disabled'}><span class="n">${l.index + 1}</span><span class="t">${esc(l.title)}</span><span class="m ${star ? 'gold' : ''}">${isUnlocked(l) ? m : '🔒'}</span></button>`;
+      h += `<button class="lvl ${s ? 'done' : ''} ${level && level.id === l.id ? 'cur' : ''}" data-id="${l.id}" ${isUnlocked(l) ? '' : 'disabled'}><span class="n">${l.index + 1}</span><span class="t">${esc(lvT(l).title)}</span><span class="m ${star ? 'gold' : ''}">${isUnlocked(l) ? m : '🔒'}</span></button>`;
     }
     h += '</div>';
   }
@@ -700,10 +709,10 @@ function showWin(l, s) {
   if (l.kind === 'program') stats = `<p>${s.size} instructions · ${s.cycles} cycles</p>`;
   else stats = `<p>${s.nand} NAND gates · delay ${s.delay ?? '—'}${l.par ? ` · par ${l.par.nand}` : ''}</p>` + (l.par && s.nand <= l.par.nand ? '<p style="color:var(--on)">★ At or under par!</p>' : l.par ? `<p class="note">Par is ${l.par.nand} NAND. You can come back and beat it any time.</p>` : '');
   const finale = !next || next.free;
-  const h = `<div class="big">${finale ? '🏆' : '⚡'}</div><h2>${finale ? 'You built a computer, and programmed it.' : 'Level complete'}</h2>${stats}` +
+  const h = `<div class="big">${finale ? '🏆' : '⚡'}</div><h2>${L(finale ? 'You built a computer, and programmed it.' : 'Level complete')}</h2>${stats}` +
     (chip && l.kind !== 'program' ? `<div class="unlock"><canvas id="winIcon"></canvas><div><b>${esc(l.label || chip)}</b> is now in your parts bin</div></div>` : '') +
     (finale ? '<p>Every gate in that machine traces back to the one NAND you started with. The sandbox has all your chips, a ROM and a RAM, for whatever you want to build next.</p>' : '') +
-    `<div class="actions" style="justify-content:center">${next ? `<button class="primary" id="wNext">${finale ? 'Free play: draw on your computer →' : 'Next: ' + esc(next.title) + ' →'}</button>` : '<button class="primary" id="wSand">Open the sandbox</button>'}<button class="ghost" id="wStay">Stay here</button></div>`;
+    `<div class="actions" style="justify-content:center">${next ? `<button class="primary" id="wNext">${finale ? L('Free play: draw on your computer →') : esc(TT('tpl.next', { t: lvT(next).title }))}</button>` : `<button class="primary" id="wSand">${L('Open the sandbox')}</button>`}<button class="ghost" id="wStay">${L('Stay here')}</button></div>`;
   const sh = modal(h, 'win');
   if (chip && l.kind !== 'program') {
     const tmp = buildLibrary(save.solved, save.passed);
@@ -751,7 +760,7 @@ function showMenu() {
   s.querySelector('#mDesign').onclick = exportDesign;
   s.querySelector('#mImport').onclick = () => $('#fileIn').click();
   s.querySelector('#mWipe').onclick = () => {
-    if (!confirm('Erase every solved level and design? This cannot be undone.')) return;
+    if (!confirm(L('Erase every solved level and design? This cannot be undone.'))) return;
     save = fresh(); persist(true); closeModal(); openLevel('not');
   };
 }
@@ -773,7 +782,7 @@ $('#fileIn').addEventListener('change', async (e) => {
   try {
     const data = JSON.parse(await f.text());
     if (data && data.v === 1 && data.solved) {
-      if (!confirm('Replace your current progress with this save file?')) return;
+      if (!confirm(L('Replace your current progress with this save file?'))) return;
       save = Object.assign(fresh(), data); persist(true); closeModal(); openLevel(save.cur && levelById[save.cur] ? save.cur : 'not');
       toast('Progress imported', 'ok');
     } else if (data && data.gatewright === 'design' && data.design && Array.isArray(data.design.parts)) {
@@ -791,7 +800,7 @@ $('#fileIn').addEventListener('change', async (e) => {
 let toastT = 0;
 function toast(msg, kind = 'info') {
   const t = $('#toast');
-  t.textContent = msg; t.className = 'show ' + kind;
+  t.textContent = L(msg); t.className = 'show ' + kind;
   clearTimeout(toastT); toastT = setTimeout(() => (t.className = kind), 2600);
 }
 
@@ -828,7 +837,7 @@ function celebrate() {
   step();
 }
 
-function closePanelOnMobile() { $('#panel').classList.remove('open'); $('#panelToggle').textContent = 'Brief'; }
+function closePanelOnMobile() { $('#panel').classList.remove('open'); $('#panelToggle').textContent = L('Brief'); }
 
 // ---------------------------------------------------------------------------
 // Wiring up the chrome
@@ -915,3 +924,10 @@ if (params.has('shot') && params.has('test')) { if (programView) programView.tes
 if (params.has('shot') && params.has('run') && programView) programView.step(+params.get('run') || 100000, false);
 if (params.has('shot') && params.get('sel')) { editor.sel.add(params.get('sel')); renderInspector(); editor.request(); }
 window.__gw = { editor, get circuit() { return circuit; }, get lib() { return lib; }, openLevel, runTests, save: () => save };
+
+// ---- language switch (i18n.js): apply static labels; on change, save and reload so every view re-renders ----
+if (window.I18N) {
+  I18N.switcher(document.getElementById('langSwitch'));
+  I18N.apply(document);
+  I18N.onChange(() => { try { persist(); } catch (e) {} location.reload(); });
+}
